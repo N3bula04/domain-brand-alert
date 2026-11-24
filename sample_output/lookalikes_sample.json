@@ -1,0 +1,162 @@
+[
+  {
+    "domain": "borthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "forthwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "horthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "jorthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "lorthwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "morthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "n0rthwind-bakery.test",
+    "reason": "Homoglyph (ASCII lookalike)"
+  },
+  {
+    "domain": "ngrthwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "nirthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "nkrthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "nlrthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "nmrthwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "nnrthwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "no-rthwindbakery.test",
+    "reason": "Hyphen insertion/removal"
+  },
+  {
+    "domain": "no2thwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "nobthwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "nodthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "noethwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "nofthwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "nopthwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "nor-thwindbakery.test",
+    "reason": "Hyphen insertion/removal"
+  },
+  {
+    "domain": "nor4hwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "nor7hwind-bakery.test",
+    "reason": "Homoglyph (ASCII lookalike)"
+  },
+  {
+    "domain": "nordhwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "norfhwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "norghwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "norhtwind-bakery.test",
+    "reason": "Transposed characters"
+  },
+  {
+    "domain": "norphwind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "norrhwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "nort-hwindbakery.test",
+    "reason": "Hyphen insertion/removal"
+  },
+  {
+    "domain": "nortbwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "nortgwind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "north-windbakery.test",
+    "reason": "Hyphen insertion/removal"
+  },
+  {
+    "domain": "north7ind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "northaind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "northeind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "northgind-bakery.test",
+    "reason": "Bit-flip variant"
+  },
+  {
+    "domain": "northiwnd-bakery.test",
+    "reason": "Transposed characters"
+  },
+  {
+    "domain": "northqind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  },
+  {
+    "domain": "northsind-bakery.test",
+    "reason": "Adjacent-key typosquat"
+  }
+]

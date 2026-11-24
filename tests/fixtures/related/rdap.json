@@ -1,0 +1,9 @@
+{
+  "domain:brand-example.test": {"ldhName": "brand-example.test", "entities": [{"roles": ["registrar"], "vcardArray": ["vcard", [["fn", {}, "text", "Fixture Registrar"]]]}]},
+  "domain:brand-examp1e.test": {"ldhName": "brand-examp1e.test", "entities": [{"roles": ["registrar"], "vcardArray": ["vcard", [["fn", {}, "text", "Other Registrar"]]]}]},
+  "domain:secure-brand-example.test": {"ldhName": "secure-brand-example.test", "entities": [{"roles": ["registrar"], "vcardArray": ["vcard", [["fn", {}, "text", "FIXTURE REGISTRAR"]]]}]},
+  "ip:198.51.100.7": {"name": "FICT-NET", "cidr0_cidrs": [{"v4prefix": "198.51.100.0", "length": 24}],
+                      "entities": [{"roles": ["registrant"], "vcardArray": ["vcard", [["fn", {}, "text", "Fictional Telecom Pte Ltd"]]]}]},
+  "ip:192.0.2.10": {"name": "DOC-NET-1", "cidr0_cidrs": [{"v4prefix": "192.0.2.0", "length": 24}],
+                    "entities": [{"roles": ["registrant"], "vcardArray": ["vcard", [["fn", {}, "text", "Example Web Hosting Ltd"]]]}]}
+}

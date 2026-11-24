@@ -1,0 +1,117 @@
+{
+  "brand": "Northwind Bakery",
+  "domain": "northwind-bakery.test",
+  "mode": "demo",
+  "started_at": "2026-11-18T15:22:15.138187+00:00",
+  "finished_at": "2026-11-18T15:22:15.138240+00:00",
+  "counts": {
+    "high": 2,
+    "warn": 2,
+    "info": 4,
+    "total": 8
+  },
+  "notes": [
+    "Demo mode: synthetic findings only (no live network queries)."
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "source": "Certificate Transparency (crt.sh)",
+      "title": "CT: brand-like names outside northwind-bakery.test",
+      "detail": "3 cert(s); sample: northwindbakery-login.test, mynorthwindbakery.test, northwindbakerysupport.test",
+      "target": "northwind bakery",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "Certificates for hostnames containing your brand but not under your domain can indicate lookalike sites. Many hits are false positives \u2014 review carefully.",
+      "raw": {
+        "demo": true
+      }
+    },
+    {
+      "severity": "high",
+      "source": "DNS lookalike",
+      "title": "Lookalike resolves: secure-northwind-bakery.test",
+      "detail": "Reason: Brand-keyword phishing-style hostname. Addresses: 198.51.100.44 (synthetic)",
+      "target": "secure-northwind-bakery.test",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "A publicly resolving lookalike can be used for phishing, brand impersonation, or confusion. Investigate ownership and certificate use.",
+      "raw": {
+        "demo": true
+      }
+    },
+    {
+      "severity": "warn",
+      "source": "Certificate Transparency (crt.sh)",
+      "title": "CT: notable hostnames in certificates",
+      "detail": "*.northwind-bakery.test, login.northwind-bakery.test, staging.northwind-bakery.test",
+      "target": "northwind-bakery.test",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "Wildcards and login/admin-style names in CT can expand your attack surface inventory.",
+      "raw": {
+        "demo": true
+      }
+    },
+    {
+      "severity": "warn",
+      "source": "DNS lookalike",
+      "title": "Lookalike resolves: northwind-bakery.test",
+      "detail": "Reason: Missing character typosquat. Addresses: 203.0.113.10 (synthetic)",
+      "target": "nrthwind-bakery.test",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "A publicly resolving lookalike can be used for phishing, brand impersonation, or confusion. Investigate ownership and certificate use.",
+      "raw": {
+        "demo": true,
+        "generation_reason": "Missing character typosquat"
+      }
+    },
+    {
+      "severity": "info",
+      "source": "Certificate Transparency (crt.sh)",
+      "title": "CT: 12 cert(s) for northwind-bakery.test",
+      "detail": "Sample names: northwind-bakery.test, www.northwind-bakery.test, api.northwind-bakery.test, staging.northwind-bakery.test",
+      "target": "northwind-bakery.test",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "CT logs show which hostnames have had publicly logged TLS certificates \u2014 useful for discovering forgotten subdomains.",
+      "raw": {
+        "demo": true,
+        "count": 12
+      }
+    },
+    {
+      "severity": "info",
+      "source": "DNS",
+      "title": "apex resolves (northwind-bakery.test)",
+      "detail": "Addresses/CNAMEs: 192.0.2.10 (synthetic)",
+      "target": "northwind-bakery.test",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "Baseline confirmation that the monitored domain is live in public DNS.",
+      "raw": {
+        "demo": true
+      }
+    },
+    {
+      "severity": "info",
+      "source": "DNS",
+      "title": "www resolves (www.northwind-bakery.test)",
+      "detail": "Addresses/CNAMEs: 192.0.2.10 (synthetic)",
+      "target": "www.northwind-bakery.test",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "Baseline confirmation that the monitored domain is live in public DNS.",
+      "raw": {
+        "demo": true
+      }
+    },
+    {
+      "severity": "info",
+      "source": "RDAP",
+      "title": "RDAP registration for northwind-bakery.test",
+      "detail": "Registered: 1995-08-14T04:00:00Z; Status: client delete prohibited; NS: ns1.dns-provider.test, ns2.dns-provider.test (synthetic)",
+      "target": "northwind-bakery.test",
+      "timestamp": "2026-11-18T15:22:15.138211+00:00",
+      "why_it_matters": "Public registration metadata helps confirm registrar, expiry, and nameservers.",
+      "raw": {
+        "demo": true
+      }
+    }
+  ],
+  "disclaimer": "Personal project demo using public DNS, Certificate Transparency (crt.sh), and RDAP/WHOIS only. Not enterprise threat intelligence. Expect false positives."
+}

@@ -1,0 +1,10 @@
+{
+  "brand-examp1e.test": [
+    {"id": 501, "issuer_name": "C=XX, O=Fixture CA, CN=Fixture CA 1", "common_name": "brand-examp1e.test",
+     "name_value": "brand-examp1e.test\nwww.brand-examp1e.test\nlogin.brand-examp1e.test", "not_before": "2026-09-01T00:00:00", "not_after": "2026-12-01T00:00:00"}
+  ],
+  "brandexample.test": [
+    {"id": 502, "issuer_name": "C=XX, O=Fixture CA, CN=Fixture CA 1", "common_name": "brandexample.test",
+     "name_value": "brandexample.test\nwww.brand-example.test\nsni.cloudflaressl.com", "not_before": "2026-09-01T00:00:00", "not_after": "2026-12-01T00:00:00"}
+  ]
+}

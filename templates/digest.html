@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alert digest — Domain &amp; Brand Alert</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Local alert digest</h1>
+      <p class="tagline">New findings since you last viewed each watch · allowlist-aware</p>
+    </div>
+    <div class="actions tight">
+      <a class="linkbtn" href="/app">Dashboard</a>
+      <span class="badge">v{{ version }}</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <button type="button" id="digest-refresh">Refresh</button>
+      <button type="button" class="secondary" id="digest-mark-all">Mark all viewed</button>
+      <span id="digest-meta" class="muted"></span>
+    </div>
+    <section id="digest-list" class="results"></section>
+    <p id="digest-empty" class="hint hidden">No new findings since last view. Nice quiet inbox.</p>
+  </main>
+
+  <footer>
+    <p>Personal project framing · Digest is local only · Optional webhooks fire after scans when configured on a watch.</p>
+  </footer>
+  <script>
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    }
+    function formatTs(iso) {
+      if (!iso) return "—";
+      try {
+        return new Date(iso).toLocaleString("en-SG", { timeZone: "Asia/Singapore" }) + " SGT";
+      } catch { return iso; }
+    }
+    async function loadDigest(markViewed = false) {
+      const list = document.getElementById("digest-list");
+      const empty = document.getElementById("digest-empty");
+      const meta = document.getElementById("digest-meta");
+      list.innerHTML = "<p class='hint'>Loading…</p>";
+      try {
+        const res = await fetch(`/api/digest?mark_viewed=${markViewed ? "true" : "false"}`);
+        const data = await res.json();
+        meta.textContent = `Generated ${formatTs(data.generated_at)} · ${data.total_new} new finding(s)`;
+        const watches = (data.watches || []).filter((w) => w.new_count > 0);
+        empty.classList.toggle("hidden", watches.length > 0);
+        if (!watches.length) {
+          list.innerHTML = "";
+          return;
+        }
+        list.innerHTML = watches.map((w) => `
+          <section class="card digest-watch">
+            <div class="detail-head-row">
+              <div>
+                <h2>${escapeHtml(w.brand)} <span class="muted">/ ${escapeHtml(w.domain)}</span></h2>
+                <p class="muted small">${w.new_count} new · last viewed ${escapeHtml(formatTs(w.last_viewed_at))}</p>
+              </div>
+              <a class="linkbtn" href="/app#watch-${w.watch_id}">Open in dashboard</a>
+            </div>
+            <div class="results" style="margin-top:0.75rem">
+              ${(w.findings || []).map((f) => `
+                <article class="finding ${escapeHtml(f.severity || "info")}">
+                  <div class="finding-head">
+                    <span class="sev ${escapeHtml(f.severity || "info")}">${escapeHtml(f.severity || "info")}</span>
+                    <span class="pill new">new</span>
+                    <span class="src">${escapeHtml(f.source || "")}</span>
+                    <span class="ts">${escapeHtml(formatTs(f.timestamp || f.scan_finished_at))}</span>
+                  </div>
+                  <h3>${escapeHtml(f.title || "")}</h3>
+                  <p>${escapeHtml(f.detail || "")}</p>
+                  <p class="why">Target: <code>${escapeHtml(f.target || "")}</code></p>
+                </article>
+              `).join("")}
+            </div>
+          </section>
+        `).join("");
+      } catch (err) {
+        list.innerHTML = `<p class="hint">Failed: ${escapeHtml(err.message || err)}</p>`;
+      }
+    }
+    document.getElementById("digest-refresh").onclick = () => loadDigest(false);
+    document.getElementById("digest-mark-all").onclick = () => loadDigest(true);
+    loadDigest(false);
+  </script>
+</body>
+</html>

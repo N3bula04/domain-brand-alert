@@ -1,0 +1,20 @@
+{
+  "brand-example.test:A": {"status": "ok", "answers": ["192.0.2.10"]},
+  "www.brand-example.test:A": {"status": "ok", "answers": ["203.0.113.5"]},
+  "brand-example.test:NS": {"status": "ok", "answers": ["ns1.brand-dns.test.", "ns2.brand-dns.test."]},
+  "brand-example.test:MX": {"status": "ok", "answers": ["10 mail.brand-example.test."]},
+
+  "brand-examp1e.test:A": {"status": "ok", "answers": ["198.51.100.7"]},
+  "brand-examp1e.test:NS": {"status": "ok", "answers": ["ns1.brand-dns.test.", "ns.elsewhere.test."]},
+  "brand-examp1e.test:MX": {"status": "ok", "answers": ["10 mx.brand-examp1e.test."]},
+  "198.51.100.7:PTR": {"status": "ok", "answers": ["vps7.fictional-host.test."]},
+
+  "secure-brand-example.test:A": {"status": "ok", "answers": ["203.0.113.5", "203.0.113.6", "203.0.113.7", "203.0.113.8", "203.0.113.9"]},
+  "secure-brand-example.test:NS": {"status": "ok", "answers": ["ns1.parked.test."]},
+
+  "brandexample.test:A": {"status": "ok", "answers": ["192.0.2.10"]},
+  "brandexample.test:NS": {"status": "ok", "answers": ["ns1.brand-dns.test.", "ns2.brand-dns.test."]},
+
+  "brand-exampel.test:A": {"status": "empty", "answers": []},
+  "brand-exampel.test:AAAA": {"status": "ok", "answers": ["2001:db8::10"]}
+}

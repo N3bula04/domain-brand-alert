@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — Domain &amp; Brand Alert</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Domain &amp; Brand Alert</h1>
+      <p class="tagline">Local personal demo · public DNS / CT / RDAP · allowlist · diffs · related infrastructure · evidence packs</p>
+    </div>
+    <div class="actions tight">
+      <a class="linkbtn" href="/digest">Digest</a>
+      <span class="badge">Singapore · v{{ version }}</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab active" data-tab="dashboard" role="tab" aria-selected="true">Dashboard</button>
+    <button type="button" class="tab" data-tab="scan" role="tab" aria-selected="false">Manual scan</button>
+    <button type="button" class="tab" data-tab="detail" role="tab" aria-selected="false" id="tab-detail" disabled>Brand detail</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="panel-dashboard" class="panel">
+      <section class="card form-card">
+        <h2 class="section-title">Add to watchlist</h2>
+        <form id="watch-form">
+          <div class="row">
+            <label>
+              Brand name
+              <input id="w-brand" name="brand" type="text" required maxlength="80"
+                     placeholder="e.g. Example Co" value="Example" />
+            </label>
+            <label>
+              Primary domain
+              <input id="w-domain" name="domain" type="text" required maxlength="120"
+                     placeholder="e.g. example.com" value="example.com" />
+            </label>
+          </div>
+          <div class="row three">
+            <label>
+              Mode
+              <select id="w-mode" name="mode">
+                <option value="auto" selected>Auto</option>
+                <option value="live">Live</option>
+                <option value="demo">Demo</option>
+              </select>
+            </label>
+            <label>
+              Interval (minutes)
+              <input id="w-interval" name="interval_minutes" type="number" min="5" max="10080" value="60" />
+            </label>
+            <label>
+              Lookalike limit
+              <input id="w-limit" name="lookalike_limit" type="number" min="5" max="200" value="50" />
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              Webhook URL <span class="muted">(optional — POSTs JSON of new findings after scan)</span>
+              <input id="w-webhook" name="webhook_url" type="url" maxlength="500"
+                     placeholder="https://example.com/hooks/brand-alert" />
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit" id="watch-add-btn">Add &amp; scan now</button>
+            <button type="button" id="watch-refresh-btn" class="secondary">Refresh</button>
+            <a class="linkbtn" href="/digest">Open digest</a>
+          </div>
+        </form>
+        <p class="hint">Persisted in local SQLite. Allowlisted domains are suppressed. Diff badges show findings new since the prior scan.</p>
+      </section>
+
+      <div class="toolbar">
+        <label class="inline">
+          Filter
+          <select id="severity-filter">
+            <option value="">All watches</option>
+            <option value="high">Has high findings</option>
+            <option value="warn">Has warn or high</option>
+            <option value="new">Has new findings</option>
+          </select>
+        </label>
+        <span id="scheduler-status" class="muted"></span>
+      </div>
+
+      <section id="watch-grid" class="watch-grid"></section>
+      <p id="watch-empty" class="hint hidden">No watches yet. Add a brand above.</p>
+    </section>
+
+    <!-- MANUAL SCAN (preserved) -->
+    <section id="panel-scan" class="panel hidden">
+      <section class="card form-card">
+        <h2 class="section-title">One-off scan</h2>
+        <form id="scan-form">
+          <div class="row">
+            <label>
+              Brand name
+              <input id="brand" name="brand" type="text" required maxlength="80"
+                     placeholder="e.g. Example Co" value="Example" />
+            </label>
+            <label>
+              Primary domain
+              <input id="domain" name="domain" type="text" required maxlength="120"
+                     placeholder="e.g. example.com" value="example.com" />
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              Mode
+              <select id="mode" name="mode">
+                <option value="auto" selected>Auto (live, demo fallback)</option>
+                <option value="live">Live public sources</option>
+                <option value="demo">Demo (synthetic)</option>
+              </select>
+            </label>
+            <label>
+              Lookalike limit
+              <input id="lookalike_limit" name="lookalike_limit" type="number" min="5" max="200" value="40" />
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit" id="run-btn">Run scan</button>
+            <button type="button" id="demo-btn" class="secondary">Quick demo</button>
+            <button type="button" id="watch-from-scan-btn" class="secondary">Add to watchlist</button>
+            <a class="linkbtn" id="export-json" href="/api/export/json">Export JSON</a>
+            <a class="linkbtn" id="export-csv" href="/api/export/csv">Export CSV</a>
+          </div>
+        </form>
+        <p class="hint">Uses crt.sh, public DNS, and RDAP/WHOIS. Global allowlist applies to one-off scans.</p>
+      </section>
+
+      <section id="status" class="status hidden"></section>
+      <section id="summary" class="summary hidden"></section>
+      <section id="results" class="results"></section>
+    </section>
+
+    <!-- BRAND DETAIL -->
+    <section id="panel-detail" class="panel hidden">
+      <section class="card" id="detail-header"></section>
+      <section id="detail-status" class="status hidden"></section>
+      <section id="detail-summary" class="summary hidden"></section>
+      <section id="detail-allowlist" class="card allowlist-card hidden"></section>
+      <section id="detail-related" class="card related-card hidden" aria-live="polite"></section>
+      <section id="detail-history" class="history"></section>
+      <section id="detail-results" class="results"></section>
+    </section>
+  </main>
+
+  <footer>
+    <p>Personal project framing · No login-wall scraping · Not a substitute for professional brand protection</p>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
