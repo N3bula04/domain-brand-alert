@@ -71,13 +71,17 @@
               ${(w.findings || []).map((f) => `
                 <article class="finding ${escapeHtml(f.severity || "info")}">
                   <div class="finding-head">
-                    <span class="sev ${escapeHtml(f.severity || "info")}">${escapeHtml(f.severity || "info")}</span>
+                    <span class="sev ${escapeHtml(f.severity || "info")}">Priority · ${escapeHtml(f.priority || ({high: "high", warn: "medium", info: "low"}[f.severity] || "low"))}</span>
+                    ${f.confidence ? `<span class="sev confidence ${escapeHtml(f.confidence)}">Confidence · ${escapeHtml(f.confidence)}</span>` : ""}
                     <span class="pill new">new</span>
                     <span class="src">${escapeHtml(f.source || "")}</span>
                     <span class="ts">${escapeHtml(formatTs(f.timestamp || f.scan_finished_at))}</span>
                   </div>
                   <h3>${escapeHtml(f.title || "")}</h3>
                   <p>${escapeHtml(f.detail || "")}</p>
+                  ${f.trigger ? `<p class="assessment"><strong>Triggered by</strong> ${escapeHtml(f.trigger)}</p>` : ""}
+                  ${f.what_would_change ? `<p class="assessment"><strong>What would change this assessment</strong> ${escapeHtml(f.what_would_change)}</p>` : ""}
+                  ${f.next_action ? `<p class="assessment"><strong>Next action</strong> ${escapeHtml(f.next_action)}</p>` : ""}
                   <p class="why">Target: <code>${escapeHtml(f.target || "")}</code></p>
                 </article>
               `).join("")}

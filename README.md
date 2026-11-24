@@ -1,4 +1,4 @@
-# Domain & Brand Alert (local MVP) — v0.4.0
+# Domain & Brand Alert (local MVP) — v0.5.0
 
 A small local web app that watches brands + primary domains and surfaces **lookalike / brand-risk signals from public data only** (Certificate Transparency, DNS, RDAP/WHOIS).
 
@@ -23,14 +23,14 @@ I wanted a lightweight way to keep an eye on lookalike domains for a few brands 
    - **Hyphen** insertion/removal
    - **Plural/singular** variants
    - Common **prefix/suffix** (`login-`, `secure-`, `support-`, …)
-4. Results with **severity** (`info` / `warn` / `high`), **source**, **timestamp**, and **why it matters**
+4. Results distinguish **priority** (how soon to look) from **confidence** (how strong the evidence is). Each finding shows its source, timestamp, why it matters, what triggered it, what could change the assessment, and a next analyst action. Exports retain severity as a priority rollup.
 5. Export last scan as **JSON** or **CSV**
 6. **Demo mode** with synthetic findings if live APIs are rate-limited or blocked
 7. **Watchlist + scheduled re-scans** (SQLite + APScheduler / background thread fallback)
    - Add / remove / pause / resume watches
    - Configurable interval (minutes)
    - Scan history + “new” finding detection (fingerprint vs prior findings)
-8. **Multi-brand dashboard** — last scan time, high/new counts, severity filter, drill-in to brand detail
+8. **Multi-brand dashboard** — last scan time, high-priority and new counts, priority filter, drill-in to brand detail
 9. **Allowlist + diff alerts** (v0.3)
    - Persist allowlisted domains **per watch** or **globally**; matching finding targets are suppressed
    - Diff view / API surfaces only **NEW** findings since the previous scan (UI badge + `?new_only=true` / `/diff`)
@@ -102,8 +102,8 @@ The tests never touch the internet. DNS, crt.sh and RDAP are replayed from ficti
 
 ```bash
 python -c "from scanners.lookalikes import generate_lookalikes; \
-print(len(generate_lookalikes('example.com','Example',limit=120))); \
-print(generate_lookalikes('example.com','Example',limit=12))"
+print(len(generate_lookalikes('example.test','Example',limit=120))); \
+print(generate_lookalikes('example.test','Example',limit=12))"
 ```
 
 ## Data sources (public only)
@@ -171,10 +171,10 @@ Sample outputs (demo mode, fictional brand `Northwind Bakery` on the reserved `.
 ```json
 {
   "event": "new_findings",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "watch_id": 1,
   "brand": "Example",
-  "domain": "example.com",
+  "domain": "example.test",
   "scan_id": 3,
   "new_count": 2,
   "high_new": 1,

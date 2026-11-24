@@ -1,12 +1,16 @@
-"""The three scanners on top of osint-collectors keep their v0.3 return shapes."""
+"""Scanner observations and their assessment fields."""
 
 import pytest
 from osint_collectors.dns import set_resolver_factory
 from osint_collectors.offline import FixtureResolver
 
 from scanners import ct_check, dns_check, rdap_check
+from scanners.assessment import ASSESSMENT_FIELDS, assess_finding
 
-FINDING_KEYS = {"severity", "source", "title", "detail", "target", "timestamp", "why_it_matters", "raw"}
+FINDING_KEYS = {
+    "severity", "source", "title", "detail", "target", "timestamp", "why_it_matters", "raw",
+    *ASSESSMENT_FIELDS,
+}
 
 
 @pytest.fixture
@@ -36,7 +40,9 @@ def test_resolve_host_shape_and_nxdomain_shortcut(fixture_dns):
 def test_primary_dns_titles_unchanged(fixture_dns):
     f = dns_check.check_primary_dns("brand-example.test")
     assert [x["title"] for x in f] == ["apex resolves (brand-example.test)", "www resolves (www.brand-example.test)"]
-    assert all(set(x) == FINDING_KEYS for x in f)
+    for finding in f:
+        assess_finding(finding)
+        assert set(finding) == FINDING_KEYS
     assert "brand-example.test." in f[1]["detail"]
 
 
@@ -75,7 +81,9 @@ def test_ct_findings_from_fake_crtsh(fake_server, monkeypatch):
     assert "CT: 1 cert(s) for brand-example.test" in titles
     assert "CT: notable hostnames in certificates" in titles
     assert "CT: brand-like names outside brand-example.test" in titles
-    assert all(set(x) == FINDING_KEYS for x in f)
+    for finding in f:
+        assess_finding(finding)
+        assert set(finding) == FINDING_KEYS
     assert len(srv.requests) == 3  # %.domain, domain, %brand%
     # Second scan inside the cache TTL: no new requests.
     ct_check.check_certificate_transparency("brand-example.test", brand="BrandExample")

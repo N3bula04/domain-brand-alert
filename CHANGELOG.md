@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 (2026-11-24)
+
+- Split findings into priority and confidence, with a trigger, evidence that would change the assessment, and a next analyst action.
+- Enrich lookalike assessments with related infrastructure in demo scans and after live mapping jobs. Treat shared providers and registrars as weak leads.
+- Retain severity as a compatibility rollup of priority for existing counts, filters, fingerprints, and exports.
+
 ## 0.4.0 (2026-10-01)
 
 First public release. Demo-mode findings and sample outputs use a fictional brand

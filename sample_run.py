@@ -8,7 +8,7 @@ import csv
 import json
 from pathlib import Path
 
-from app import run_scan
+from app import FINDING_CSV_FIELDS, run_scan
 
 OUT = Path(__file__).resolve().parent / "sample_output"
 
@@ -29,8 +29,8 @@ def main() -> None:
     json_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
 
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
-        fields = ["severity", "source", "title", "detail", "target", "timestamp", "why_it_matters"]
-        w = csv.DictWriter(fh, fieldnames=fields)
+        fields = FINDING_CSV_FIELDS
+        w = csv.DictWriter(fh, fieldnames=fields, lineterminator="\n")
         w.writeheader()
         for f in result.get("findings") or []:
             w.writerow({k: f.get(k, "") for k in fields})

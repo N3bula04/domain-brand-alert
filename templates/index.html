@@ -39,7 +39,7 @@
             <label>
               Primary domain
               <input id="w-domain" name="domain" type="text" required maxlength="120"
-                     placeholder="e.g. example.com" value="example.com" />
+                     placeholder="e.g. example.test" value="example.test" />
             </label>
           </div>
           <div class="row three">
@@ -64,7 +64,7 @@
             <label>
               Webhook URL <span class="muted">(optional — POSTs JSON of new findings after scan)</span>
               <input id="w-webhook" name="webhook_url" type="url" maxlength="500"
-                     placeholder="https://example.com/hooks/brand-alert" />
+                     placeholder="https://example.test/hooks/brand-alert" />
             </label>
           </div>
           <div class="actions">
@@ -81,8 +81,8 @@
           Filter
           <select id="severity-filter">
             <option value="">All watches</option>
-            <option value="high">Has high findings</option>
-            <option value="warn">Has warn or high</option>
+            <option value="high">Has high-priority findings</option>
+            <option value="warn">Has medium- or high-priority findings</option>
             <option value="new">Has new findings</option>
           </select>
         </label>
@@ -107,7 +107,7 @@
             <label>
               Primary domain
               <input id="domain" name="domain" type="text" required maxlength="120"
-                     placeholder="e.g. example.com" value="example.com" />
+                     placeholder="e.g. example.test" value="example.test" />
             </label>
           </div>
           <div class="row">

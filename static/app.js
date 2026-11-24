@@ -63,9 +63,9 @@ function renderFindings(data, opts = {}) {
   const c = data.counts || {};
   summaryEl.classList.remove("hidden");
   summaryEl.innerHTML = `
-    <div class="stat high"><div class="n">${c.high ?? 0}</div><div class="l">High</div></div>
-    <div class="stat warn"><div class="n">${c.warn ?? 0}</div><div class="l">Warn</div></div>
-    <div class="stat info"><div class="n">${c.info ?? 0}</div><div class="l">Info</div></div>
+    <div class="stat high"><div class="n">${c.high ?? 0}</div><div class="l">High priority</div></div>
+    <div class="stat warn"><div class="n">${c.warn ?? 0}</div><div class="l">Medium priority</div></div>
+    <div class="stat info"><div class="n">${c.info ?? 0}</div><div class="l">Low priority</div></div>
     <div class="stat"><div class="n">${c.total ?? 0}</div><div class="l">Total · mode ${escapeHtml(data.mode || "?")}${data.diff ? " · <span class='pill new'>diff</span>" : ""}${c.suppressed ? ` · ${c.suppressed} suppressed` : ""}</div></div>
   `;
 
@@ -91,12 +91,14 @@ function renderFindings(data, opts = {}) {
     (findings.length
       ? findings
           .map((f) => {
-            const sev = f.severity || "info";
+            const sev = escapeHtml(f.severity || "info");
+            const priority = f.priority || ({high: "high", warn: "medium", info: "low"}[f.severity] || "low");
             const isNew = f.is_new ? `<span class="pill new">new</span>` : "";
             return `
         <article class="finding ${sev}${f.is_new ? " is-new" : ""}">
           <div class="finding-head">
-            <span class="sev ${sev}">${escapeHtml(sev)}</span>
+            <span class="sev ${sev}">Priority · ${escapeHtml(priority)}</span>
+            ${f.confidence ? `<span class="sev confidence ${escapeHtml(f.confidence)}">Confidence · ${escapeHtml(f.confidence)}</span>` : ""}
             ${isNew}
             <span class="src">${escapeHtml(f.source || "")}</span>
             <span class="ts">${escapeHtml(formatTs(f.timestamp))}</span>
@@ -104,13 +106,16 @@ function renderFindings(data, opts = {}) {
           <h3>${escapeHtml(f.title || "")}</h3>
           <p>${escapeHtml(f.detail || "")}</p>
           <p class="why"><strong>Why it matters:</strong> ${escapeHtml(f.why_it_matters || "")}</p>
+          ${f.trigger ? `<p class="assessment"><strong>Triggered by</strong> ${escapeHtml(f.trigger)}</p>` : ""}
+          ${f.what_would_change ? `<p class="assessment"><strong>What would change this assessment</strong> ${escapeHtml(f.what_would_change)}</p>` : ""}
+          ${f.next_action ? `<p class="assessment"><strong>Next action</strong> ${escapeHtml(f.next_action)}</p>` : ""}
           <p class="why">Target: <code>${escapeHtml(f.target || "")}</code>
             ${opts.watchId ? `<button type="button" class="linkish btn-allow" data-target="${escapeHtml(f.target || "")}" data-watch="${opts.watchId}">Allowlist</button>` : ""}
           </p>
         </article>`;
           })
           .join("")
-      : `<p class="hint">No findings${opts.newOnly ? " (diff: no new since last scan)" : ""}${opts.severityFilter ? " for this severity filter" : ""}.</p>`);
+      : `<p class="hint">No findings${opts.newOnly ? " (diff: no new since last scan)" : ""}${opts.severityFilter ? " for this priority filter" : ""}.</p>`);
 
   resultsEl.querySelectorAll(".btn-allow").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -179,10 +184,10 @@ form.addEventListener("submit", (e) => {
 });
 
 demoBtn.addEventListener("click", () => {
-  document.getElementById("brand").value = "Example";
-  document.getElementById("domain").value = "example.com";
+  document.getElementById("brand").value = "Northwind Bakery";
+  document.getElementById("domain").value = "northwind-bakery.test";
   document.getElementById("mode").value = "demo";
-  runScan({ brand: "Example", domain: "example.com", mode: "demo", lookalike_limit: 40 });
+  runScan({ brand: "Northwind Bakery", domain: "northwind-bakery.test", mode: "demo", lookalike_limit: 40 });
 });
 
 document.getElementById("watch-from-scan-btn").addEventListener("click", async () => {
@@ -256,8 +261,8 @@ function renderWatchCards(watches) {
           ${paused}
         </div>
         <div class="watch-stats">
-          <span class="chip high">${counts.high ?? 0} high</span>
-          <span class="chip warn">${counts.warn ?? 0} warn</span>
+          <span class="chip high">${counts.high ?? 0} high priority</span>
+          <span class="chip warn">${counts.warn ?? 0} medium priority</span>
           <span class="chip new">${w.new_count ?? 0} new</span>
           <span class="chip">${counts.total ?? 0} total</span>
         </div>
@@ -432,7 +437,7 @@ async function openWatch(id) {
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     const w = data.watch;
-    const latest = data.latest;
+    let latest = data.latest;
 
     header.innerHTML = `
       <div class="detail-head-row">
@@ -465,12 +470,12 @@ async function openWatch(id) {
       </div>
       <div class="toolbar">
         <label class="inline">
-          Finding severity
+          Finding priority
           <select id="detail-sev-filter">
             <option value="">All</option>
-            <option value="high">High</option>
-            <option value="warn">Warn</option>
-            <option value="info">Info</option>
+            <option value="high">High priority</option>
+            <option value="warn">Medium priority</option>
+            <option value="info">Low priority</option>
           </select>
         </label>
         <label class="inline checkbox">
@@ -504,7 +509,7 @@ async function openWatch(id) {
     };
 
     renderAllowlist(data.allowlist || [], id);
-    loadRelated(id);
+    let selectedScan = latest?.id;
 
     history.innerHTML = `
       <h3 class="section-title">Scan history</h3>
@@ -515,7 +520,7 @@ async function openWatch(id) {
             return `<button type="button" class="history-item" data-scan="${h.id}">
               <span>${escapeHtml(formatTs(h.finished_at))}</span>
               <span class="chip high">${c.high ?? 0}H</span>
-              <span class="chip warn">${c.warn ?? 0}W</span>
+              <span class="chip warn">${c.warn ?? 0}M</span>
               <span class="chip">${c.total ?? 0}</span>
               <span class="muted">${escapeHtml(h.mode)}</span>
             </button>`;
@@ -526,6 +531,7 @@ async function openWatch(id) {
 
     history.querySelectorAll(".history-item").forEach((btn) => {
       btn.addEventListener("click", async () => {
+        selectedScan = Number(btn.dataset.scan);
         const scanRes = await fetch(`/api/scans/${btn.dataset.scan}${detailNewOnly ? "?new_only=true" : ""}`);
         const scan = await scanRes.json();
         const result = { ...(scan.result || scan), diff: !!scan.diff || detailNewOnly };
@@ -545,6 +551,7 @@ async function openWatch(id) {
         status.textContent = "No scan results yet for this watch.";
         return;
       }
+      selectedScan = latest.id;
       const result = { ...latest.result, diff: !!latest.diff || detailNewOnly };
       renderFindings(result, {
         summaryEl: summary,
@@ -558,12 +565,22 @@ async function openWatch(id) {
 
     document.getElementById("detail-sev-filter").addEventListener("change", applyFilter);
     applyFilter();
+    loadRelated(id, async (scanId) => {
+      if (latest?.id !== scanId) return;
+      const res = await fetch(`/api/scans/${scanId}${detailNewOnly ? "?new_only=true" : ""}`);
+      if (!res.ok) return;
+      const updated = await res.json();
+      if (currentWatchId !== id || !results.isConnected) return;
+      latest = updated;
+      if (selectedScan === scanId) applyFilter();
+      loadDashboard();
+    });
   } catch (err) {
     status.textContent = `Failed to load watch: ${err.message || err}`;
   }
 }
 
-/* ---- Related infrastructure (v0.4) ---- */
+/* ---- Related infrastructure (v0.5.0) ---- */
 
 let relatedPollTimer = null;
 
@@ -617,7 +634,7 @@ function renderRelatedDomain(d) {
     </details>`;
 }
 
-function renderRelated(data, watchId) {
+function renderRelated(data, watchId, onComplete) {
   const el = document.getElementById("detail-related");
   el.classList.remove("hidden");
   const job = data.job;
@@ -657,19 +674,24 @@ function renderRelated(data, watchId) {
       alert(`Could not start mapping: ${await res.text()}`);
       return;
     }
-    loadRelated(watchId);
+    loadRelated(watchId, onComplete);
   };
   clearTimeout(relatedPollTimer);
   if (busy && currentWatchId === watchId) {
-    relatedPollTimer = setTimeout(() => loadRelated(watchId), 2500);
+    relatedPollTimer = setTimeout(() => loadRelated(watchId, onComplete), 2500);
   }
 }
 
-async function loadRelated(watchId) {
+async function loadRelated(watchId, onComplete) {
   try {
     const res = await fetch(`/api/watches/${watchId}/related`);
     if (!res.ok) throw new Error(await res.text());
-    renderRelated(await res.json(), watchId);
+    const data = await res.json();
+    if (currentWatchId !== watchId) return;
+    renderRelated(data, watchId, onComplete);
+    if (data.job?.status === "done") {
+      await onComplete?.(data.job.result?.scan_id);
+    }
   } catch (err) {
     const el = document.getElementById("detail-related");
     el.classList.remove("hidden");

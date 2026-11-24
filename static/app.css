@@ -161,6 +161,12 @@ button:disabled { opacity: 0.6; cursor: wait; }
 .sev.high { background: color-mix(in srgb, var(--high) 25%, transparent); color: var(--high); }
 .sev.warn { background: color-mix(in srgb, var(--warn) 25%, transparent); color: var(--warn); }
 .sev.info { background: color-mix(in srgb, var(--info) 25%, transparent); color: var(--info); }
+.sev.confidence { border: 1px solid var(--border); }
+.sev.confidence.high { background: color-mix(in srgb, var(--info) 20%, transparent); color: var(--info); }
+.sev.confidence.medium { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.sev.confidence.low { background: #243249; color: var(--muted); }
+.finding .assessment { font-size: 0.85rem; }
+.assessment strong { margin-right: 0.35rem; }
 .src { color: var(--muted); font-size: 0.8rem; }
 .ts { color: var(--muted); font-size: 0.75rem; margin-left: auto; }
 .finding h3 { margin: 0.2rem 0; font-size: 1.05rem; }

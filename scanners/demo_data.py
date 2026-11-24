@@ -17,6 +17,9 @@ def synthetic_findings(brand: str, domain: str) -> list[dict[str, Any]]:
     label = domain.split(".")[0]
     suffix = domain.split(".", 1)[-1] if "." in domain else "test"
     slug = "".join(ch for ch in brand.lower() if ch.isalnum() or ch == "-") or label
+    typo = f"{label[0]}{label[2:]}.{suffix}" if len(label) > 2 else f"{label}-x.test"
+    # Preserve the legacy typo title used in scan fingerprints.
+    typo_title_domain = domain if "." in domain else f"{label}.com"
     return [
         {
             "severity": "info",
@@ -32,7 +35,7 @@ def synthetic_findings(brand: str, domain: str) -> list[dict[str, Any]]:
             "severity": "info",
             "source": "DNS",
             "title": f"www resolves (www.{domain})",
-            "detail": "Addresses/CNAMEs: 192.0.2.10 (synthetic)",
+            "detail": "Addresses/CNAMEs: 203.0.113.20 (synthetic)",
             "target": f"www.{domain}",
             "timestamp": ts,
             "why_it_matters": "Baseline confirmation that the monitored domain is live in public DNS.",
@@ -41,13 +44,13 @@ def synthetic_findings(brand: str, domain: str) -> list[dict[str, Any]]:
         {
             "severity": "warn",
             "source": "DNS lookalike",
-            "title": f"Lookalike resolves: {label[:-1] + label[-1:]}.{domain.split('.', 1)[-1] if '.' in domain else 'com'}",
-            "detail": "Reason: Missing character typosquat. Addresses: 203.0.113.10 (synthetic)",
-            "target": f"{label[0]}{label[2:]}.{domain.split('.', 1)[-1]}" if len(label) > 2 else f"{label}-x.test",
+            "title": f"Lookalike resolves: {typo_title_domain}",
+            "detail": f"Variant: {typo}. Reason: Missing character typosquat. Addresses: 203.0.113.20 (synthetic)",
+            "target": typo,
             "timestamp": ts,
             "why_it_matters": (
                 "A publicly resolving lookalike can be used for phishing, brand impersonation, "
-                "or confusion. Investigate ownership and certificate use."
+                "or confusion. Compare public infrastructure and certificate use."
             ),
             "raw": {"demo": True, "generation_reason": "Missing character typosquat"},
         },
@@ -60,9 +63,9 @@ def synthetic_findings(brand: str, domain: str) -> list[dict[str, Any]]:
             "timestamp": ts,
             "why_it_matters": (
                 "A publicly resolving lookalike can be used for phishing, brand impersonation, "
-                "or confusion. Investigate ownership and certificate use."
+                "or confusion. Compare public infrastructure and certificate use."
             ),
-            "raw": {"demo": True},
+            "raw": {"demo": True, "generation_reason": "Brand-keyword phishing-style hostname"},
         },
         {
             "severity": "info",

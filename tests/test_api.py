@@ -25,7 +25,7 @@ def _wait_done(client, wid, timeout=10.0):
 
 
 def test_health_and_pages(client):
-    assert client.get("/api/health").json()["version"] == "0.4.0"
+    assert client.get("/api/health").json()["version"] == "0.5.0"
     html = client.get("/app").text
     assert 'id="detail-related"' in html
     assert "renderRelated" in client.get("/static/app.js").text
@@ -37,6 +37,14 @@ def test_demo_watch_scan_and_auto_related_job(client):
     body = r.json()
     wid = body["watch"]["id"]
     assert body["result"]["counts"]["total"] == 8
+    from scanners.assessment import ASSESSMENT_FIELDS
+
+    findings = body["result"]["findings"]
+    assert all(all(finding[field] for field in ASSESSMENT_FIELDS) for finding in findings)
+    lookalikes = [f for f in findings if f["source"] == "DNS lookalike"]
+    assert [(f["priority"], f["confidence"]) for f in lookalikes] == [
+        ("high", "medium"), ("medium", "low"),
+    ]
     data = _wait_done(client, wid)
     job = data["job"]
     assert job["status"] == "done" and job["mode"] == "demo" and job["trigger"] == "auto"
@@ -75,8 +83,13 @@ def test_evidence_pack_carries_related_result(client):
     _wait_done(client, wid)
     z = zipfile.ZipFile(io.BytesIO(client.get(f"/api/watches/{wid}/evidence-pack").content))
     meta = json.loads(next(z.read(n) for n in z.namelist() if n.endswith("metadata.json")))
-    assert meta["version"] == "0.4.0"
+    assert meta["version"] == "0.5.0"
     assert meta["related_infrastructure"]["status"] == "done"
+    from scanners.assessment import ASSESSMENT_FIELDS
+
+    for name in ("high_findings.csv", "all_findings.csv"):
+        csv_data = next(z.read(n).decode() for n in z.namelist() if n.endswith(name))
+        assert set(ASSESSMENT_FIELDS) <= set(csv_data.splitlines()[0].split(","))
 
 
 def test_lookalike_targets_never_maps_synthetic_findings_live():

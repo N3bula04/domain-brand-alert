@@ -1,5 +1,5 @@
 """
-Domain & Brand Alert — local personal demo (v0.4.0).
+Domain & Brand Alert — local personal demo (v0.5.0).
 
 Public-data only: Certificate Transparency (crt.sh), DNS, RDAP/WHOIS, collected
 through the shared osint-collectors package. Not enterprise threat intel.
@@ -33,6 +33,7 @@ from starlette.concurrency import run_in_threadpool
 
 import scheduler as watch_scheduler
 import storage
+from scanners.assessment import ASSESSMENT_FIELDS, assess_finding, enrich_findings_with_related
 from scanners.ct_check import check_certificate_transparency
 from scanners.demo_data import synthetic_findings
 from scanners.dns_check import check_lookalike_dns, check_primary_dns
@@ -41,7 +42,11 @@ from scanners.related_demo import build_demo_fixtures
 from scanners.related_infra import FixtureSources, LiveSources, map_related
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.4.0"
+VERSION = "0.5.0"
+FINDING_CSV_FIELDS = [
+    "severity", "source", "title", "detail", "target", "timestamp", "why_it_matters",
+    *ASSESSMENT_FIELDS,
+]
 log = logging.getLogger("domain-brand-alert")
 
 # In-memory last scan for export convenience
@@ -148,6 +153,14 @@ def run_scan(brand: str, domain: str, mode: str = "auto", lookalike_limit: int =
                 findings.extend(synthetic_findings(brand, domain))
                 used_mode = "auto+demo"
 
+    for finding in findings:
+        assess_finding(finding)
+    synthetic = {"mode": "demo", "findings": [f for f in findings if (f.get("raw") or {}).get("demo")]}
+    demo_targets, _ = _lookalike_targets(synthetic)
+    if demo_targets:
+        related = map_related(domain, demo_targets, FixtureSources(build_demo_fixtures(domain, demo_targets)))
+        enrich_findings_with_related(synthetic["findings"], related)
+
     order = {"high": 0, "warn": 1, "info": 2}
     findings.sort(key=lambda f: (order.get(f.get("severity", "info"), 9), f.get("source", ""), f.get("title", "")))
 
@@ -195,27 +208,41 @@ def _lookalike_targets(scan_result: dict[str, Any]) -> tuple[list[str], str]:
 
 
 def _run_related_job(job_id: int, watch_id: int) -> None:
+    global _LAST_SCAN
     storage.update_related_job(job_id, status="running", started_at=datetime.now(timezone.utc).isoformat())
     try:
         watch = storage.get_watch(watch_id)
-        latest = storage.get_latest_scan(watch_id)
-        if not watch or not latest:
+        job = storage.get_related_job(job_id)
+        scan = storage.get_scan(job["scan_id"]) if job and job["scan_id"] else None
+        if not watch or not scan:
             raise RuntimeError("watch has no stored scan yet")
-        targets, mode = _lookalike_targets(latest["result"])
+        targets, mode = _lookalike_targets(scan["result"])
         if mode == "demo":
-            sources = FixtureSources(build_demo_fixtures(watch["domain"], targets))
+            fixture_scan = {
+                "mode": "demo",
+                "findings": [
+                    {**f, "suppressed": False} for f in scan["result"]["findings"]
+                    if (f.get("raw") or {}).get("demo")
+                ],
+            }
+            fixture_targets, _ = _lookalike_targets(fixture_scan)
+            sources = FixtureSources(build_demo_fixtures(watch["domain"], fixture_targets))
         else:
             sources = LiveSources()
         result = map_related(watch["domain"], targets, sources)
         result["mode"] = mode
-        result["scan_id"] = latest["id"]
+        result["scan_id"] = scan["id"]
         if mode == "demo":
             result["demo_note"] = (
                 "Demo watch: everything below is synthetic (fictional names, documentation IP ranges). "
                 "No network lookups were made."
             )
-        storage.update_related_job(job_id, status="done", mode=mode, result=result,
-                                   finished_at=datetime.now(timezone.utc).isoformat())
+        with _SCAN_LOCK:
+            counts = storage.complete_related_job(job_id, scan["id"], mode, result)
+            if counts is not None and _LAST_SCAN.get("scan_id") == scan["id"]:
+                findings = [dict(f) for f in _LAST_SCAN["findings"]]
+                enrich_findings_with_related(findings, result, reassess=(mode == "live"))
+                _LAST_SCAN = {**_LAST_SCAN, "findings": findings, "counts": counts}
     except Exception as exc:  # noqa: BLE001
         log.exception("Related-infrastructure job %s failed", job_id)
         storage.update_related_job(job_id, status="error", error=f"{type(exc).__name__}: {exc}",
@@ -329,7 +356,7 @@ def _scan_due_watches() -> None:
             with _SCAN_LOCK:
                 result, _meta = _scan_and_save(w)
                 global _LAST_SCAN
-                _LAST_SCAN = {**result, "watch_id": w["id"]}
+                _LAST_SCAN = {**result, "watch_id": w["id"], "scan_id": _meta["scan_id"]}
             log.info("Scheduled scan done for watch %s (%s)", w["id"], w["domain"])
         except Exception:  # noqa: BLE001
             log.exception("Scheduled scan failed for watch %s", w.get("id"))
@@ -409,7 +436,7 @@ def _watch_scan(watch: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     global _LAST_SCAN
     with _SCAN_LOCK:
         result, meta = _scan_and_save(watch)
-        _LAST_SCAN = {**result, "watch_id": watch["id"]}
+        _LAST_SCAN = {**result, "watch_id": watch["id"], "scan_id": meta["scan_id"]}
     return result, meta
 
 
@@ -452,7 +479,7 @@ async def export_csv() -> StreamingResponse:
     buf = io.StringIO()
     writer = csv.DictWriter(
         buf,
-        fieldnames=["severity", "source", "title", "detail", "target", "timestamp", "why_it_matters", "is_new"],
+        fieldnames=[*FINDING_CSV_FIELDS, "is_new"],
     )
     writer.writeheader()
     for f in (_LAST_SCAN or {}).get("findings") or []:
@@ -715,7 +742,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
         high_buf = io.StringIO()
         high_writer = csv.DictWriter(
             high_buf,
-            fieldnames=["severity", "source", "title", "detail", "target", "timestamp", "why_it_matters", "is_new"],
+            fieldnames=[*FINDING_CSV_FIELDS, "is_new"],
         )
         high_writer.writeheader()
         for f in pack["high_findings"]:
@@ -726,7 +753,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
         all_buf = io.StringIO()
         all_writer = csv.DictWriter(
             all_buf,
-            fieldnames=["severity", "source", "title", "detail", "target", "timestamp", "why_it_matters", "is_new"],
+            fieldnames=[*FINDING_CSV_FIELDS, "is_new"],
         )
         all_writer.writeheader()
         for f in pack["all_findings"]:
@@ -762,9 +789,9 @@ Product: Domain & Brand Alert v{pack['version']}
 ## Contents
 
 - metadata.json — watch config, latest scan metadata, allowlist, high findings
-- high_findings.csv — severity=high findings only (client handoff focus)
+- high_findings.csv — high-priority findings only (client handoff focus)
 - all_findings.csv — all non-suppressed findings from latest scan
-- scan_history.csv — recent scan timestamps and severity counts
+- scan_history.csv — recent scan timestamps and priority counts
 
 ## Sources
 

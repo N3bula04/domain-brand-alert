@@ -23,11 +23,11 @@ REGISTRAR = "Example Registrar Ltd (fictional)"
 OTHER_REGISTRAR = "Placeholder Names Inc (fictional)"
 
 
-def _rdap_domain(name: str, registrar: str) -> dict[str, Any]:
+def _rdap_domain(name: str, registrar: str, *, registered: str = "2026-09-01T00:00:00Z") -> dict[str, Any]:
     return {
         "objectClassName": "domain",
         "ldhName": name,
-        "events": [{"eventAction": "registration", "eventDate": "2026-09-01T00:00:00Z"}],
+        "events": [{"eventAction": "registration", "eventDate": registered}],
         "entities": [{"roles": ["registrar"], "vcardArray": ["vcard", [["fn", {}, "text", registrar]]]}],
     }
 
@@ -88,7 +88,7 @@ def build_demo_fixtures(brand_domain: str, lookalikes: list[str]) -> dict[str, A
             ip = "203.0.113.20"
             rec(dom, "A", [ip])
             rec(dom, "NS", ["ns1.parking-demo.test.", "ns2.parking-demo.test."])
-            rdap[f"domain:{dom}"] = _rdap_domain(dom, REGISTRAR)
+            rdap[f"domain:{dom}"] = _rdap_domain(dom, REGISTRAR, registered="2024-09-01T00:00:00Z")
             crtsh[dom] = [_cert(9002, [dom, f"www.{dom}"])]
         else:
             ip = f"198.51.100.{100 + i}"

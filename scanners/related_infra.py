@@ -28,6 +28,7 @@ from typing import Any, Callable, Iterable
 
 import dns.reversename
 from osint_collectors.cache import Cache
+from osint_collectors.ct import cert_names as entry_cert_names
 from osint_collectors.ct import crtsh_fetch, is_cdn_placeholder, parse_ct_entries
 from osint_collectors.dns import dns_query
 from osint_collectors.offline import FixtureResolver
@@ -35,6 +36,7 @@ from osint_collectors.psl import host_in_domain, registrable_domain
 from osint_collectors.rdap import entities_by_role, ip_block, vcard
 
 from scanners import collect, shared_infra
+from scanners.assessment import utc_datetime
 
 SOURCES_NOTE = (
     "Public data only: DNS via your recursive resolver, certificate transparency via crt.sh, "
@@ -348,6 +350,22 @@ def map_related(brand_domain: str, lookalikes: list[str], sources=None) -> dict[
         for n in brand_cert_hits[:5]:
             overlaps.append(_overlap("certificate", n, f"a certificate for {dom} also names {n}", None))
 
+        registered_at = next(
+            (event.get("eventDate") for event in (dom_data or {}).get("events", [])
+             if event.get("eventAction") == "registration"), None,
+        )
+        observed = utc_datetime(started)
+        has_current_certificate = False
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            valid_from = utc_datetime(entry.get("not_before"))
+            valid_to = utc_datetime(entry.get("not_after"))
+            if valid_from and valid_to and valid_from <= observed < valid_to:
+                if any(host_in_domain(name, dom) for name in entry_cert_names(entry)):
+                    has_current_certificate = True
+                    break
+
         shared_flags = sorted({a["shared"] for a in addresses if a["shared"]} |
                               {r for r in ns_shared.values() if r})
         results.append({
@@ -355,6 +373,8 @@ def map_related(brand_domain: str, lookalikes: list[str], sources=None) -> dict[
             "addresses": addresses,
             "nameserver_shared": ns_shared,
             "registrar": registrar,
+            "registered_at": registered_at,
+            "has_current_certificate": has_current_certificate,
             "cert_count": len(certs),
             "cert_names": sorted(cert_names)[:MAX_CERT_NAMES],
             "cert_names_total": len(cert_names),

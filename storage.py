@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+from scanners.assessment import ASSESSMENT_FIELDS, enrich_findings_with_related
+
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "data" / "watchlist.db"
 
@@ -339,7 +341,12 @@ def save_scan_result(watch_id: int, result: dict[str, Any]) -> dict[str, Any]:
         for f in kept + suppressed:
             fp = _fingerprint(f)
             is_suppressed = 1 if f.get("suppressed") else 0
-            is_new = 0 if fp in prev_fps else 1
+            # Older scans classified some resolving variants as high. A related job can
+            # also promote a variant after the scan, so recognize that prior state.
+            seen = fp in prev_fps
+            if f.get("source") == "DNS lookalike" and f.get("priority") == "medium" and not (f.get("raw") or {}).get("demo"):
+                seen = seen or _fingerprint({**f, "severity": "high"}) in prev_fps
+            is_new = 0 if seen else 1
             if is_new and not is_suppressed:
                 new_count += 1
                 if f.get("severity") == "high":
@@ -453,6 +460,16 @@ def get_scan(scan_id: int) -> dict[str, Any] | None:
         return data
 
 
+def _scan_assessments(conn: sqlite3.Connection, scan_id: int) -> dict:
+    row = conn.execute("SELECT result_json FROM scans WHERE id = ?", (scan_id,)).fetchone()
+    if not row:
+        return {}
+    return {
+        _fingerprint(f): {key: f[key] for key in ASSESSMENT_FIELDS if key in f}
+        for f in json.loads(row["result_json"]).get("findings", [])
+    }
+
+
 def get_scan_findings(
     scan_id: int,
     *,
@@ -478,9 +495,11 @@ def get_scan_findings(
             """,
             params,
         ).fetchall()
+        assessments = _scan_assessments(conn, scan_id)
         return [
             {
                 **dict(r),
+                **assessments.get(r["fingerprint"], {}),
                 "is_new": bool(r["is_new"]),
                 "suppressed": bool(r["suppressed"]),
             }
@@ -654,6 +673,7 @@ def digest_new_findings(
     watches = [w for w in watches if w]
     items: list[dict[str, Any]] = []
     total_new = 0
+    assessments = {}
     with get_db() as conn:
         for w in watches:
             last_viewed = w.get("last_viewed_at")
@@ -692,9 +712,12 @@ def digest_new_findings(
                         """,
                         (latest["id"],),
                     ).fetchall()
+            for scan_id in {r["scan_id"] for r in rows}:
+                assessments[scan_id] = _scan_assessments(conn, scan_id)
             findings = [
                 {
                     **{k: r[k] for k in r.keys() if k not in ("is_new", "suppressed")},
+                    **assessments[r["scan_id"]].get(r["fingerprint"], {}),
                     "is_new": True,
                     "suppressed": False,
                 }
@@ -744,7 +767,7 @@ def evidence_pack_data(watch_id: int) -> dict[str, Any] | None:
     return {
         "exported_at": _now(),
         "product": "Domain & Brand Alert",
-        "version": "0.4.0",
+        "version": "0.5.0",
         "watch": {
             "id": watch["id"],
             "brand": watch["brand"],
@@ -815,6 +838,37 @@ def update_related_job(job_id: int, **fields: Any) -> None:
     cols = ", ".join(f"{k} = ?" for k in updates)
     with get_db() as conn:
         conn.execute(f"UPDATE related_jobs SET {cols} WHERE id = ?", list(updates.values()) + [job_id])
+
+
+def complete_related_job(job_id: int, scan_id: int, mode: str, related: dict) -> dict | None:
+    """Persist a completed map and its assessments in the same transaction."""
+    with get_db() as conn:
+        row = conn.execute("SELECT result_json FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        if not row:
+            return None
+        result = json.loads(row["result_json"])
+        findings = result["findings"]
+        before = [_fingerprint(f) for f in findings]
+        enrich_findings_with_related(findings, related, reassess=(mode == "live"))
+        for old_fp, finding in zip(before, findings):
+            new_fp = _fingerprint(finding)
+            if new_fp != old_fp:
+                conn.execute(
+                    "UPDATE findings SET severity = ?, fingerprint = ? WHERE scan_id = ? AND fingerprint = ?",
+                    (finding["severity"], new_fp, scan_id, old_fp),
+                )
+        counts = result["counts"]
+        for severity in ("high", "warn", "info"):
+            counts[severity] = sum(f["severity"] == severity for f in findings if not f.get("suppressed"))
+        conn.execute(
+            "UPDATE scans SET result_json = ?, counts_json = ? WHERE id = ?",
+            (json.dumps(result), json.dumps(counts), scan_id),
+        )
+        conn.execute(
+            "UPDATE related_jobs SET status = 'done', mode = ?, result_json = ?, finished_at = ? WHERE id = ?",
+            (mode, json.dumps(related), _now(), job_id),
+        )
+        return counts
 
 
 def get_related_job(job_id: int) -> dict[str, Any] | None:
