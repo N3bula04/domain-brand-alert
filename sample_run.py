@@ -8,7 +8,7 @@ import csv
 import json
 from pathlib import Path
 
-from app import FINDING_CSV_FIELDS, run_scan
+from app import FINDING_CSV_FIELDS, run_scan, sanitize_csv_cell
 
 OUT = Path(__file__).resolve().parent / "sample_output"
 
@@ -33,7 +33,7 @@ def main() -> None:
         w = csv.DictWriter(fh, fieldnames=fields, lineterminator="\n")
         w.writeheader()
         for f in result.get("findings") or []:
-            w.writerow({k: f.get(k, "") for k in fields})
+            w.writerow({k: sanitize_csv_cell(f.get(k, "")) for k in fields})
 
     counts = result.get("counts") or {}
     print(f"Mode: {result.get('mode')}")

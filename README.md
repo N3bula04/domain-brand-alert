@@ -1,4 +1,4 @@
-# Domain & Brand Alert (local MVP) — v0.5.0
+# Domain & Brand Alert (local MVP) — v0.5.1
 
 A small local web app that watches brands + primary domains and surfaces **lookalike / brand-risk signals from public data only** (Certificate Transparency, DNS, RDAP/WHOIS).
 
@@ -152,26 +152,29 @@ Sample outputs (demo mode, fictional brand `Northwind Bakery` on the reserved `.
 | GET | `/api/export/json\|csv` | Export last in-memory scan |
 | GET | `/api/watches?severity=` | Dashboard list (`high` / `warn` / `new`) |
 | POST | `/api/watches` | Add watch (`scan_now`, optional `webhook_url`) |
-| GET/PATCH/DELETE | `/api/watches/{id}` | Read / update / remove (`?new_only=&mark_viewed=`) |
+| GET/PATCH/DELETE | `/api/watches/{id}` | Read / update / remove (GET supports `?new_only=`) |
 | POST | `/api/watches/{id}/pause\|resume\|scan` | Pause, resume, or force re-scan |
 | GET | `/api/watches/{id}/history` | Scan history |
 | GET | `/api/watches/{id}/diff` | New findings only (latest scan) |
 | GET | `/api/watches/{id}/evidence-pack` | ZIP evidence pack download |
 | GET | `/api/watches/{id}/related` | Latest related-infrastructure job + last finished result |
 | POST | `/api/watches/{id}/related` | Queue a related-infrastructure job (202; returns the active job if one is already queued) |
-| POST | `/api/watches/{id}/viewed` | Mark digest viewed |
+| POST | `/api/watches/{id}/viewed` | Mark this watch viewed |
 | GET/POST | `/api/allowlist` | List / add allowlist (`watch_id` null = global) |
 | DELETE | `/api/allowlist/{id}` | Remove allowlist entry |
-| GET | `/api/digest?mark_viewed=` | Digest of new findings since last view |
+| GET | `/api/digest?watch_id=` | Read new findings since last view, optionally for one watch |
+| POST | `/api/digest/viewed` | Mark all watches viewed and return the updated digest |
 | GET | `/api/scans/{id}?new_only=` | Full stored scan JSON |
 | GET | `/api/scheduler` | Scheduler backend status |
 
 ### Webhook payload (when URL set and new findings exist)
 
+Creating or updating a watch accepts only HTTPS webhook URLs whose DNS results are all public IP addresses. An invalid URL returns HTTP 422. Set `webhook_url` to an empty string or `null` to disable delivery. The app checks the destination again before sending and disables redirects.
+
 ```json
 {
   "event": "new_findings",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "watch_id": 1,
   "brand": "Example",
   "domain": "example.test",

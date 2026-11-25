@@ -663,11 +663,13 @@ def delete_allowlist_entry(entry_id: int) -> bool:
 
 # ---- Digest (new since last view) ----
 
-def digest_new_findings(
-    watch_id: int | None = None,
-    *,
-    mark_viewed: bool = False,
-) -> dict[str, Any]:
+def mark_all_watches_viewed() -> None:
+    with get_db() as conn:
+        now = _now()
+        conn.execute("UPDATE watches SET last_viewed_at = ?, updated_at = ?", (now, now))
+
+
+def digest_new_findings(watch_id: int | None = None) -> dict[str, Any]:
     """List new, non-suppressed findings since each watch's last_viewed_at (or all new if never viewed)."""
     watches = [get_watch(watch_id)] if watch_id else list_watches()
     watches = [w for w in watches if w]
@@ -734,11 +736,6 @@ def digest_new_findings(
                     "findings": findings,
                 }
             )
-            if mark_viewed:
-                conn.execute(
-                    "UPDATE watches SET last_viewed_at = ?, updated_at = ? WHERE id = ?",
-                    (_now(), _now(), w["id"]),
-                )
     return {
         "generated_at": _now(),
         "total_new": total_new,
@@ -767,7 +764,7 @@ def evidence_pack_data(watch_id: int) -> dict[str, Any] | None:
     return {
         "exported_at": _now(),
         "product": "Domain & Brand Alert",
-        "version": "0.5.0",
+        "version": "0.5.1",
         "watch": {
             "id": watch["id"],
             "brand": watch["brand"],

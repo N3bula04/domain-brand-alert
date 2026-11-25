@@ -49,7 +49,10 @@
       const meta = document.getElementById("digest-meta");
       list.innerHTML = "<p class='hint'>Loading…</p>";
       try {
-        const res = await fetch(`/api/digest?mark_viewed=${markViewed ? "true" : "false"}`);
+        const res = markViewed
+          ? await fetch("/api/digest/viewed", { method: "POST" })
+          : await fetch("/api/digest");
+        if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         meta.textContent = `Generated ${formatTs(data.generated_at)} · ${data.total_new} new finding(s)`;
         const watches = (data.watches || []).filter((w) => w.new_count > 0);

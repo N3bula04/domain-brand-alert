@@ -432,10 +432,12 @@ async function openWatch(id) {
   history.innerHTML = "";
 
   try {
-    const q = `?mark_viewed=true${detailNewOnly ? "&new_only=true" : ""}`;
+    const q = detailNewOnly ? "?new_only=true" : "";
     const res = await fetch(`/api/watches/${id}${q}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
+    const viewed = await fetch(`/api/watches/${id}/viewed`, { method: "POST" });
+    if (!viewed.ok) throw new Error(await viewed.text());
     const w = data.watch;
     let latest = data.latest;
 

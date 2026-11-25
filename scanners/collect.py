@@ -26,7 +26,7 @@ from osint_collectors.http import HttpClient, HttpOutcome, host_of
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "data" / "cache"
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.5.1"
 USER_AGENT = (
     f"DomainBrandAlert/{APP_VERSION} (+https://github.com/N3bula04/domain-brand-alert; personal project)"
 )

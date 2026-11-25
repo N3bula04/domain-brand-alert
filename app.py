@@ -1,5 +1,5 @@
 """
-Domain & Brand Alert — local personal demo (v0.5.0).
+Domain & Brand Alert — local personal demo (v0.5.1).
 
 Public-data only: Certificate Transparency (crt.sh), DNS, RDAP/WHOIS, collected
 through the shared osint-collectors package. Not enterprise threat intel.
@@ -13,12 +13,17 @@ from __future__ import annotations
 
 import csv
 import io
+import ipaddress
 import json
 import logging
+import re
+import socket
 import threading
+import unicodedata
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -42,7 +47,7 @@ from scanners.related_demo import build_demo_fixtures
 from scanners.related_infra import FixtureSources, LiveSources, map_related
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 FINDING_CSV_FIELDS = [
     "severity", "source", "title", "detail", "target", "timestamp", "why_it_matters",
     *ASSESSMENT_FIELDS,
@@ -277,6 +282,54 @@ def _maybe_auto_related(watch: dict[str, Any], result: dict[str, Any]) -> None:
     enqueue_related(watch, trigger="auto")
 
 
+# HTTPX logs request URLs at INFO, and HTTP Core can log sensitive headers at DEBUG.
+_sending_webhook = ContextVar("sending_webhook", default=False)
+
+
+def _filter_webhook_http_logs(record: logging.LogRecord) -> bool:
+    return not _sending_webhook.get()
+
+
+for _logger_name in ("httpx", "httpcore.connection", "httpcore.http11"):
+    logging.getLogger(_logger_name).addFilter(_filter_webhook_http_logs)
+
+
+def _resolve_webhook(url: str) -> tuple[httpx.URL, str]:
+    target = httpx.URL(url)
+    if target.scheme != "https" or not target.raw_host:
+        raise ValueError("Webhook URL must use HTTPS and include a hostname")
+    port = 443 if target.port is None else target.port
+    if not 1 <= port <= 65535:
+        raise ValueError("Webhook URL must use a valid port")
+    records = socket.getaddrinfo(
+        target.raw_host.decode("ascii"), port, type=socket.SOCK_STREAM,
+    )
+    addresses = []
+    for record in records:
+        address = ipaddress.ip_address(record[4][0])
+        if isinstance(address, ipaddress.IPv6Address):
+            if address.is_site_local:
+                raise ValueError("Webhook URL must resolve only to public IP addresses")
+            address = address.ipv4_mapped or address
+        if not address.is_global or address.is_multicast or address.is_reserved:
+            raise ValueError("Webhook URL must resolve only to public IP addresses")
+        addresses.append(str(address))
+    if not addresses:
+        raise ValueError("Webhook URL must resolve to a public IP address")
+    return target, addresses[0]
+
+
+async def _validate_webhook(url: str | None) -> str | None:
+    cleaned = (url or "").strip()
+    if not cleaned:
+        return None
+    try:
+        await run_in_threadpool(_resolve_webhook, cleaned)
+    except (httpx.InvalidURL, OSError, ValueError):
+        raise HTTPException(422, "Webhook URL must be valid HTTPS and resolve only to public IP addresses") from None
+    return cleaned
+
+
 def _post_webhook(watch: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any] | None:
     """POST JSON of new findings to watch webhook_url if set. Skip if empty."""
     url = (watch.get("webhook_url") or "").strip()
@@ -284,7 +337,6 @@ def _post_webhook(watch: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]
         return None
     new_findings = meta.get("new_findings") or []
     if not new_findings:
-        log.info("Webhook skipped for watch %s: no new findings", watch.get("id"))
         return {"skipped": True, "reason": "no_new_findings"}
     payload = {
         "event": "new_findings",
@@ -298,14 +350,25 @@ def _post_webhook(watch: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]
         "findings": new_findings,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    token = _sending_webhook.set(True)
     try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.post(url, json=payload)
-        log.info("Webhook POST %s → %s for watch %s", url, resp.status_code, watch["id"])
+        target, address = _resolve_webhook(url)
+        # Connect to the validated address and retain the original TLS name and Host.
+        with httpx.Client(timeout=10.0, follow_redirects=False, trust_env=False) as client:
+            resp = client.post(
+                target.copy_with(host=address),
+                json=payload,
+                headers={"Host": target.netloc},
+                extensions={"sni_hostname": target.raw_host.decode("ascii")},
+            )
+        log.info("Webhook for watch %s returned HTTP %s", watch["id"], resp.status_code)
         return {"ok": resp.is_success, "status_code": resp.status_code}
     except Exception as exc:  # noqa: BLE001
-        log.warning("Webhook POST failed for watch %s: %s", watch.get("id"), exc)
-        return {"ok": False, "error": str(exc)}
+        error = type(exc).__name__
+        log.warning("Webhook for watch %s failed: %s", watch["id"], error)
+        return {"ok": False, "error": error}
+    finally:
+        _sending_webhook.reset(token)
 
 
 def _scan_and_save(watch: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -446,15 +509,18 @@ async def api_scan(body: ScanRequest) -> JSONResponse:
     return JSONResponse(result)
 
 
-@app.get("/api/scan")
-async def api_scan_get(
-    brand: str = Query(..., min_length=1),
-    domain: str = Query(..., min_length=3),
-    mode: Literal["live", "demo", "auto"] = "auto",
-    lookalike_limit: int = Query(50, ge=5, le=200),
-) -> JSONResponse:
-    result = await run_in_threadpool(_one_off_scan, brand, domain, mode, lookalike_limit)
-    return JSONResponse(result)
+def sanitize_csv_cell(value: Any) -> Any:
+    if isinstance(value, str):
+        for char in value:
+            if char in "=+-@\t\r":
+                return "'" + value
+            if not char.isspace() and unicodedata.category(char) != "Cc":
+                break
+    return value
+
+
+def _filename_slug(value: str, max_length: int = 120) -> str:
+    return re.sub(r"[^A-Za-z0-9_]", "_", value)[:max_length] or "_"
 
 
 @app.get("/api/export/json")
@@ -466,7 +532,7 @@ async def export_json() -> StreamingResponse:
             headers={"Content-Disposition": "attachment; filename=no_scan.json"},
         )
     payload = json.dumps(_LAST_SCAN, indent=2).encode("utf-8")
-    domain = _LAST_SCAN.get("domain", "scan").replace(".", "_")
+    domain = _filename_slug(_LAST_SCAN.get("domain", "scan"))
     return StreamingResponse(
         io.BytesIO(payload),
         media_type="application/json",
@@ -483,9 +549,9 @@ async def export_csv() -> StreamingResponse:
     )
     writer.writeheader()
     for f in (_LAST_SCAN or {}).get("findings") or []:
-        writer.writerow({k: f.get(k, "") for k in writer.fieldnames})
+        writer.writerow({k: sanitize_csv_cell(f.get(k, "")) for k in writer.fieldnames})
     data = buf.getvalue().encode("utf-8")
-    domain = (_LAST_SCAN or {}).get("domain", "scan").replace(".", "_")
+    domain = _filename_slug(_LAST_SCAN.get("domain", "scan"))
     return StreamingResponse(
         io.BytesIO(data),
         media_type="text/csv",
@@ -511,7 +577,7 @@ async def api_create_watch(body: WatchCreate) -> JSONResponse:
         mode=body.mode,
         lookalike_limit=body.lookalike_limit,
         interval_minutes=body.interval_minutes,
-        webhook_url=body.webhook_url,
+        webhook_url=await _validate_webhook(body.webhook_url),
     )
     scan_meta = None
     result = None
@@ -526,7 +592,6 @@ async def api_create_watch(body: WatchCreate) -> JSONResponse:
 async def api_get_watch(
     watch_id: int,
     new_only: bool = Query(False, description="If true, latest findings filtered to is_new only"),
-    mark_viewed: bool = Query(False, description="Mark watch as viewed (clears digest)"),
 ) -> JSONResponse:
     watch = storage.get_watch(watch_id)
     if not watch:
@@ -554,8 +619,6 @@ async def api_get_watch(
             "total": len(findings),
         }
         latest["diff"] = True
-    if mark_viewed:
-        watch = storage.mark_watch_viewed(watch_id) or watch
     return JSONResponse({
         "watch": {**watch, "paused": bool(watch["paused"])},
         "latest": latest,
@@ -569,10 +632,8 @@ async def api_update_watch(watch_id: int, body: WatchUpdate) -> JSONResponse:
     if not storage.get_watch(watch_id):
         raise HTTPException(404, "Watch not found")
     fields = body.model_dump(exclude_none=True)
-    # Allow clearing webhook with empty string
-    raw = body.model_dump()
-    if "webhook_url" in raw and raw["webhook_url"] is not None:
-        fields["webhook_url"] = raw["webhook_url"]
+    if "webhook_url" in body.model_fields_set:
+        fields["webhook_url"] = await _validate_webhook(body.webhook_url)
     if "paused" in fields:
         fields["paused"] = 1 if fields["paused"] else 0
     updated = storage.update_watch(watch_id, **fields)
@@ -704,13 +765,16 @@ async def api_delete_allowlist(entry_id: int) -> JSONResponse:
 # ---- Digest ----
 
 @app.get("/api/digest")
-async def api_digest(
-    watch_id: int | None = Query(None),
-    mark_viewed: bool = Query(False),
-) -> JSONResponse:
+async def api_digest(watch_id: int | None = Query(None)) -> JSONResponse:
     if watch_id is not None and not storage.get_watch(watch_id):
         raise HTTPException(404, "Watch not found")
-    return JSONResponse(storage.digest_new_findings(watch_id, mark_viewed=mark_viewed))
+    return JSONResponse(storage.digest_new_findings(watch_id))
+
+
+@app.post("/api/digest/viewed")
+async def api_digest_viewed() -> JSONResponse:
+    storage.mark_all_watches_viewed()
+    return JSONResponse(storage.digest_new_findings())
 
 
 @app.post("/api/watches/{watch_id}/viewed")
@@ -730,8 +794,8 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
     if not pack:
         raise HTTPException(404, "Watch not found")
 
-    brand_slug = "".join(c if c.isalnum() else "_" for c in pack["watch"]["brand"])[:40]
-    domain_slug = pack["watch"]["domain"].replace(".", "_")
+    brand_slug = _filename_slug(pack["watch"]["brand"], max_length=40)
+    domain_slug = _filename_slug(pack["watch"]["domain"])
     base = f"evidence_{brand_slug}_{domain_slug}"
 
     buf = io.BytesIO()
@@ -746,7 +810,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
         )
         high_writer.writeheader()
         for f in pack["high_findings"]:
-            high_writer.writerow({k: f.get(k, "") for k in high_writer.fieldnames})
+            high_writer.writerow({k: sanitize_csv_cell(f.get(k, "")) for k in high_writer.fieldnames})
         zf.writestr(f"{base}/high_findings.csv", high_buf.getvalue())
 
         # All findings CSV
@@ -757,7 +821,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
         )
         all_writer.writeheader()
         for f in pack["all_findings"]:
-            all_writer.writerow({k: f.get(k, "") for k in all_writer.fieldnames})
+            all_writer.writerow({k: sanitize_csv_cell(f.get(k, "")) for k in all_writer.fieldnames})
         zf.writestr(f"{base}/all_findings.csv", all_buf.getvalue())
 
         # Scan history summary
@@ -769,7 +833,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
         hist_writer.writeheader()
         for h in pack["scan_history"]:
             c = h.get("counts") or {}
-            hist_writer.writerow({
+            row = {
                 "scan_id": h.get("id"),
                 "started_at": h.get("started_at"),
                 "finished_at": h.get("finished_at"),
@@ -778,7 +842,8 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
                 "warn": c.get("warn", 0),
                 "info": c.get("info", 0),
                 "total": c.get("total", 0),
-            })
+            }
+            hist_writer.writerow({k: sanitize_csv_cell(v) for k, v in row.items()})
         zf.writestr(f"{base}/scan_history.csv", hist_buf.getvalue())
 
         readme = f"""# Evidence Pack — {pack['watch']['brand']} / {pack['watch']['domain']}
@@ -810,7 +875,7 @@ Overlaps there are leads to verify, not proof of common ownership.
     return StreamingResponse(
         buf,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

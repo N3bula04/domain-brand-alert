@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 (2026-11-26)
+
+- Require public HTTPS webhook destinations at save time and again before delivery. Disable redirects and keep webhook URLs out of logs.
+- Require POST to launch scans and mark watches or the digest viewed.
+- Sanitize formula-like CSV cells and bound export filenames and ZIP member names to safe characters.
+- Pin GitHub Actions by commit, disable checkout credential persistence, and add weekly Dependabot updates.
+
 ## 0.5.0 (2026-11-24)
 
 - Split findings into priority and confidence, with a trigger, evidence that would change the assessment, and a next analyst action.
