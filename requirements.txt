@@ -5,7 +5,7 @@ dnspython==2.7.0
 python-whois==0.9.4
 jinja2==3.1.5
 pydantic==2.10.4
-apscheduler==3.10.4
+apscheduler==3.11.3
 # Shared DNS / crt.sh / RDAP collectors (requests-based), pinned to a tag.
 # For local development: pip install -e ../osint-collectors
 osint-collectors @ git+https://github.com/N3bula04/osint-collectors@v0.1.0
