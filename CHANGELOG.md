@@ -5,6 +5,7 @@
 - Split findings into priority and confidence, with a trigger, evidence that would change the assessment, and a next analyst action.
 - Enrich lookalike assessments with related infrastructure in demo scans and after live mapping jobs. Treat shared providers and registrars as weak leads.
 - Retain severity as a compatibility rollup of priority for existing counts, filters, fingerprints, and exports.
+- Use the variant hostname in the demo typo lookalike finding title.
 
 ## 0.4.0 (2026-10-01)
 

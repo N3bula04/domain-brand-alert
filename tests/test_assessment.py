@@ -18,7 +18,7 @@ TYPO = "nrthwind-bakery.test"
     "title_prefix,priority,confidence",
     [
         (f"Lookalike resolves: {LURE}", "high", "medium"),
-        (f"Lookalike resolves: {DOMAIN}", "medium", "low"),
+        (f"Lookalike resolves: {TYPO}", "medium", "low"),
         ("CT: brand-like names outside", "high", "low"),
         ("CT: notable hostnames", "medium", "high"),
         ("CT: 12 cert(s)", "low", "high"),
@@ -38,6 +38,13 @@ def test_base_assessment(title_prefix, priority, confidence):
     original = finding.copy()
     assess_finding(finding)
     assert finding == original
+
+
+def test_demo_typo_title_uses_variant_hostname():
+    findings = synthetic_findings(BRAND, DOMAIN)
+    typo = next(f for f in findings if f["target"] == TYPO)
+    assert typo["title"] == f"Lookalike resolves: {TYPO}"
+    assert all(f["title"] != f"Lookalike resolves: {DOMAIN}" for f in findings)
 
 
 def test_related_fixture_assessments():

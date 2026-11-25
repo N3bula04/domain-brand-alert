@@ -18,8 +18,6 @@ def synthetic_findings(brand: str, domain: str) -> list[dict[str, Any]]:
     suffix = domain.split(".", 1)[-1] if "." in domain else "test"
     slug = "".join(ch for ch in brand.lower() if ch.isalnum() or ch == "-") or label
     typo = f"{label[0]}{label[2:]}.{suffix}" if len(label) > 2 else f"{label}-x.test"
-    # Preserve the legacy typo title used in scan fingerprints.
-    typo_title_domain = domain if "." in domain else f"{label}.com"
     return [
         {
             "severity": "info",
@@ -44,7 +42,7 @@ def synthetic_findings(brand: str, domain: str) -> list[dict[str, Any]]:
         {
             "severity": "warn",
             "source": "DNS lookalike",
-            "title": f"Lookalike resolves: {typo_title_domain}",
+            "title": f"Lookalike resolves: {typo}",
             "detail": f"Variant: {typo}. Reason: Missing character typosquat. Addresses: 203.0.113.20 (synthetic)",
             "target": typo,
             "timestamp": ts,
