@@ -1,4 +1,4 @@
-# Domain & Brand Alert (local MVP) — v0.5.1
+# Domain & Brand Alert (local MVP) — v0.5.2
 
 A small local web app that watches brands + primary domains and surfaces **lookalike / brand-risk signals from public data only** (Certificate Transparency, DNS, RDAP/WHOIS).
 
@@ -174,7 +174,7 @@ Creating or updating a watch accepts only HTTPS webhook URLs whose DNS results a
 ```json
 {
   "event": "new_findings",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "watch_id": 1,
   "brand": "Example",
   "domain": "example.test",

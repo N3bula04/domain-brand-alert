@@ -764,7 +764,7 @@ def evidence_pack_data(watch_id: int) -> dict[str, Any] | None:
     return {
         "exported_at": _now(),
         "product": "Domain & Brand Alert",
-        "version": "0.5.1",
+        "version": "0.5.2",
         "watch": {
             "id": watch["id"],
             "brand": watch["brand"],

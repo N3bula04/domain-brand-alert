@@ -25,7 +25,7 @@ def _wait_done(client, wid, timeout=10.0):
 
 
 def test_health_and_pages(client):
-    assert client.get("/api/health").json()["version"] == "0.5.1"
+    assert client.get("/api/health").json()["version"] == "0.5.2"
     html = client.get("/app").text
     assert 'id="detail-related"' in html
     assert "renderRelated" in client.get("/static/app.js").text
@@ -83,7 +83,7 @@ def test_evidence_pack_carries_related_result(client):
     _wait_done(client, wid)
     z = zipfile.ZipFile(io.BytesIO(client.get(f"/api/watches/{wid}/evidence-pack").content))
     meta = json.loads(next(z.read(n) for n in z.namelist() if n.endswith("metadata.json")))
-    assert meta["version"] == "0.5.1"
+    assert meta["version"] == "0.5.2"
     assert meta["related_infrastructure"]["status"] == "done"
     from scanners.assessment import ASSESSMENT_FIELDS
 
@@ -285,7 +285,7 @@ def test_export_filenames_and_csv_cells(client, monkeypatch):
         "all_findings": [finding],
         "scan_history": [{"mode": "\r=1"}],
         "exported_at": "2026-11-26",
-        "version": "0.5.1",
+        "version": "0.5.2",
         "disclaimer": "",
     }
     monkeypatch.setattr(app_module.storage, "evidence_pack_data", lambda _: pack)

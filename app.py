@@ -1,5 +1,5 @@
 """
-Domain & Brand Alert — local personal demo (v0.5.1).
+Domain & Brand Alert — local personal demo (v0.5.2).
 
 Public-data only: Certificate Transparency (crt.sh), DNS, RDAP/WHOIS, collected
 through the shared osint-collectors package. Not enterprise threat intel.
@@ -26,7 +26,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Sequence, TextIO
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -47,7 +47,7 @@ from scanners.related_demo import build_demo_fixtures
 from scanners.related_infra import FixtureSources, LiveSources, map_related
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 FINDING_CSV_FIELDS = [
     "severity", "source", "title", "detail", "target", "timestamp", "why_it_matters",
     *ASSESSMENT_FIELDS,
@@ -509,6 +509,15 @@ async def api_scan(body: ScanRequest) -> JSONResponse:
     return JSONResponse(result)
 
 
+def make_csv_writer(output: TextIO, fieldnames: Sequence[str]) -> csv.DictWriter:
+    return csv.DictWriter(
+        output,
+        fieldnames=fieldnames,
+        quoting=csv.QUOTE_MINIMAL,
+        lineterminator="\r\n",
+    )
+
+
 def sanitize_csv_cell(value: Any) -> Any:
     if isinstance(value, str):
         for char in value:
@@ -543,7 +552,7 @@ async def export_json() -> StreamingResponse:
 @app.get("/api/export/csv")
 async def export_csv() -> StreamingResponse:
     buf = io.StringIO()
-    writer = csv.DictWriter(
+    writer = make_csv_writer(
         buf,
         fieldnames=[*FINDING_CSV_FIELDS, "is_new"],
     )
@@ -804,7 +813,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
 
         # High findings CSV
         high_buf = io.StringIO()
-        high_writer = csv.DictWriter(
+        high_writer = make_csv_writer(
             high_buf,
             fieldnames=[*FINDING_CSV_FIELDS, "is_new"],
         )
@@ -815,7 +824,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
 
         # All findings CSV
         all_buf = io.StringIO()
-        all_writer = csv.DictWriter(
+        all_writer = make_csv_writer(
             all_buf,
             fieldnames=[*FINDING_CSV_FIELDS, "is_new"],
         )
@@ -826,7 +835,7 @@ async def api_evidence_pack(watch_id: int) -> StreamingResponse:
 
         # Scan history summary
         hist_buf = io.StringIO()
-        hist_writer = csv.DictWriter(
+        hist_writer = make_csv_writer(
             hist_buf,
             fieldnames=["scan_id", "started_at", "finished_at", "mode", "high", "warn", "info", "total"],
         )

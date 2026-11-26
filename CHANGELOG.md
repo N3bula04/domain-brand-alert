@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2 (2026-11-26)
+
+- Quote embedded carriage returns in CSV fields so sanitized values round-trip on Python 3.10.
+
 ## 0.5.1 (2026-11-26)
 
 - Require public HTTPS webhook destinations at save time and again before delivery. Disable redirects and keep webhook URLs out of logs.

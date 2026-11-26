@@ -4,11 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 from pathlib import Path
 
-from app import FINDING_CSV_FIELDS, run_scan, sanitize_csv_cell
+from app import FINDING_CSV_FIELDS, make_csv_writer, run_scan, sanitize_csv_cell
 
 OUT = Path(__file__).resolve().parent / "sample_output"
 
@@ -30,7 +29,7 @@ def main() -> None:
 
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
         fields = FINDING_CSV_FIELDS
-        w = csv.DictWriter(fh, fieldnames=fields, lineterminator="\n")
+        w = make_csv_writer(fh, fieldnames=fields)
         w.writeheader()
         for f in result.get("findings") or []:
             w.writerow({k: sanitize_csv_cell(f.get(k, "")) for k in fields})
